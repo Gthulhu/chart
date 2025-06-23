@@ -1,0 +1,27 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-api-config
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+  config.json: |
+    {
+      "server": {
+        "port": {{ .Values.api.port }},
+        "readTimeout": "15s",
+        "writeTimeout": "15s",
+        "idleTimeout": "60s"
+      },
+      "logging": {
+        "level": "info",
+        "format": "json"
+      },
+      "metrics": {
+        "enabled": true,
+        "path": "/metrics"
+      }
+    }
+{{- end }}

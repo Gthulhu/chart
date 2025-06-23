@@ -1,0 +1,58 @@
+1. Gthulhu has been deployed to your Kubernetes cluster!
+
+{{- if .Values.scheduler.enabled }}
+
+** Gthulhu Scheduler **
+The BPF scheduler is running as a DaemonSet on all nodes.
+You can check the scheduler status with:
+
+  kubectl get daemonset {{ include "gthulhu.fullname" . }}-scheduler -n {{ .Release.Namespace }}
+  kubectl logs -l app.kubernetes.io/component=scheduler -n {{ .Release.Namespace }}
+
+{{- end }}
+
+{{- if .Values.api.enabled }}
+
+** BSS Metrics API Server **
+{{- if .Values.api.ingress.enabled }}
+{{- range $host := .Values.api.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.api.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.api.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "gthulhu.fullname" . }}-api)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.api.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "gthulhu.fullname" . }}-api'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "gthulhu.fullname" . }}-api --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:\{\{ .Values.api.service.port }}
+{{- else if contains "ClusterIP" .Values.api.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=api,app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+API Endpoints:
+  POST /api/v1/metrics - Submit BSS metrics data
+  GET  /health         - Health check
+  GET  /               - API information
+
+{{- end }}
+
+** Monitoring **
+{{- if .Values.monitoring.enabled }}
+Prometheus ServiceMonitor has been created to scrape metrics.
+{{- else }}
+To enable monitoring, set monitoring.enabled=true in your values.yaml
+{{- end }}
+
+** Important Notes **
+- The scheduler requires Linux kernel 6.12+ with sched_ext support
+- Nodes must have the necessary BPF capabilities
+- The scheduler runs with privileged access for BPF operations
+
+For more information, visit: https://github.com/Gthulhu/Gthulhu

@@ -1,0 +1,17 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "gthulhu.fullname" . }}-test-connection"
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "gthulhu.fullname" . }}-api:{{ .Values.api.service.port }}/health']
+  restartPolicy: Never
+{{- end }}
