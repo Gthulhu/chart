@@ -1,3 +1,57 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-scheduler-config
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+data:
+  config.yaml: |
+    # Gthulhu Scheduler Configuration
+    scheduler:
+      enabled: true
+      debug: false
+      log_level: "info"
+      log_format: "json"
+      
+      # BPF Configuration
+      bpf:
+        attach_mode: "auto"
+        prog_name: "gthulhu_sched"
+        map_size: 65536
+        
+      # Scheduling Policy
+      policy:
+        default_slice_ns: 20000000  # 20ms default time slice
+        latency_weight: 50
+        throughput_weight: 30
+        fairness_weight: 20
+        
+      # Resource Management
+      resources:
+        cpu_threshold: 80.0
+        memory_threshold: 85.0
+        enable_numa_awareness: true
+        
+      # Monitoring
+      monitoring:
+        metrics_interval: 30
+        enable_tracing: false
+        
+    # System Integration
+    system:
+      proc_path: "/proc"
+      sys_path: "/sys"
+      debugfs_path: "/sys/kernel/debug"
+      
+    # Kubernetes Integration
+    kubernetes:
+      in_cluster: true
+      namespace: {{ .Release.Namespace | quote }}
+      node_name_env: "NODE_NAME"
+{{- end }}
+---
 {{- if .Values.api.enabled }}
 apiVersion: v1
 kind: ConfigMap
@@ -7,21 +61,68 @@ metadata:
     {{- include "gthulhu.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 data:
-  config.json: |
-    {
-      "server": {
-        "port": {{ .Values.api.port }},
-        "readTimeout": "15s",
-        "writeTimeout": "15s",
-        "idleTimeout": "60s"
-      },
-      "logging": {
-        "level": "info",
-        "format": "json"
-      },
-      "metrics": {
-        "enabled": true,
-        "path": "/metrics"
-      }
-    }
+  config.yaml: |
+    # Gthulhu API Server Configuration
+    server:
+      host: "0.0.0.0"
+      port: {{ .Values.api.port }}
+      read_timeout: "15s"
+      write_timeout: "15s"
+      idle_timeout: "60s"
+      shutdown_timeout: "30s"
+      
+    # Logging Configuration
+    logging:
+      level: "info"
+      format: "json"
+      output: "stdout"
+      
+    # Metrics Configuration
+    metrics:
+      enabled: true
+      path: "/metrics"
+      interval: "30s"
+      
+    # Health Check Configuration
+    health:
+      path: "/health"
+      detailed: true
+      
+    # Data Sources
+    data_sources:
+      # Host proc filesystem for system metrics
+      proc_path: "/host/proc"
+      # Scheduler communication
+      scheduler:
+        socket_path: "/var/run/gthulhu/scheduler.sock"
+        timeout: "5s"
+        
+    # Kubernetes Integration
+    kubernetes:
+      in_cluster: true
+      namespace: {{ .Release.Namespace | quote }}
+      node_name_env: "NODE_NAME"
+      
+    # API Endpoints Configuration
+    api:
+      version: "v1"
+      base_path: "/api"
+      
+      # Rate limiting
+      rate_limit:
+        enabled: true
+        requests_per_minute: 1000
+        burst: 100
+        
+      # CORS settings
+      cors:
+        enabled: false
+        allowed_origins: []
+        allowed_methods: ["GET", "POST"]
+        allowed_headers: ["Content-Type", "Authorization"]
+        
+    # Storage Configuration (for future use)
+    storage:
+      type: "memory"
+      retention_period: "24h"
 {{- end }}

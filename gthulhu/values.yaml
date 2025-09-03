@@ -56,14 +56,27 @@ api:
   port: 8080
   targetPort: 8080
   
+  # Host PID namespace is required for API operations
+  hostPID: true
+  
+  # API server needs access to host proc and K8s API
   securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
+    privileged: true
+    runAsUser: 0
     capabilities:
+      add:
+        - SYS_PTRACE
+        - SYS_ADMIN
       drop:
-        - ALL
+        - NET_RAW
+  
+  # Node selector for API (inherit global if not specified)
+  nodeSelector:
+    kubernetes.io/os: linux
+  
+  # Tolerations to allow scheduling on any node
+  tolerations:
+    - operator: Exists
   
   # Service configuration
   service:

@@ -44,6 +44,9 @@ spec:
             - name: proc
               mountPath: /proc
               readOnly: true
+            - name: config-volume
+              mountPath: /etc/gthulhu
+              readOnly: true
           resources:
             {{- toYaml .Values.scheduler.resources | nindent 12 }}
       volumes:
@@ -53,6 +56,9 @@ spec:
         - name: proc
           hostPath:
             path: /proc
+        - name: config-volume
+          configMap:
+            name: {{ include "gthulhu.fullname" . }}-scheduler-config
       {{- with .Values.scheduler.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -69,16 +75,13 @@ spec:
 {{- end }}
 {{- if .Values.api.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: {{ include "gthulhu.fullname" . }}-api
   labels:
     {{- include "gthulhu.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
-  {{- if not .Values.api.autoscaling.enabled }}
-  replicas: {{ .Values.api.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "gthulhu.selectorLabels" . | nindent 6 }}
@@ -98,6 +101,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gthulhu.serviceAccountName" . }}
+      hostPID: {{ .Values.api.hostPID }}
       securityContext:
         {{- toYaml .Values.api.securityContext | nindent 8 }}
       containers:
@@ -128,13 +132,27 @@ spec:
             timeoutSeconds: {{ .Values.api.healthCheck.timeoutSeconds }}
             failureThreshold: {{ .Values.api.healthCheck.failureThreshold }}
           {{- end }}
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: config-volume
+              mountPath: /etc/gthulhu
+              readOnly: true
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
-      {{- with .Values.nodeSelector }}
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: config-volume
+          configMap:
+            name: {{ include "gthulhu.fullname" . }}-api-config
+      {{- with .Values.api.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.api.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
