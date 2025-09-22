@@ -36,7 +36,8 @@ spec:
           securityContext:
             {{- toYaml .Values.scheduler.securityContext | nindent 12 }}
           command:
-            - /gthulhu/main
+            - /gthulhu/main 
+          args: ["-config", "/etc/gthulhu/config.yaml"]
           volumeMounts:
             - name: sys-kernel-debug
               mountPath: /sys/kernel/debug
@@ -110,6 +111,9 @@ spec:
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.api.securityContext | nindent 12 }}
+          command:
+            - /app/main 
+          args: ["-config", "/etc/gthulhu/config.json", "--in-cluster=true"]
           ports:
             - name: http
               containerPort: {{ .Values.api.port }}

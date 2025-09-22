@@ -8,8 +8,8 @@ scheduler:
   replicaCount: 1
   
   image:
-    repository: 127.0.0.1:5000/gthulhu
-    pullPolicy: IfNotPresent
+    repository: 127.0.0.1:32000/gthulhu
+    pullPolicy: Always
     tag: "latest"
   
   # Scheduler requires privileged access for BPF operations
@@ -44,12 +44,12 @@ scheduler:
 
 # Metrics API Server Configuration
 api:
-  enabled: false
+  enabled: true
   replicaCount: 1
   
   image:
-    repository: gthulhu-api
-    pullPolicy: IfNotPresent
+    repository: 127.0.0.1:32000/gthulhu-api
+    pullPolicy: Always
     tag: "latest"
   
   # API server port configuration
