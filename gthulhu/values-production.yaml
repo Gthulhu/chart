@@ -1,0 +1,174 @@
+# Production values for gthulhu.
+# This is a YAML-formatted file for production deployments.
+# Uses container images from GitHub Container Registry (ghcr.io/gthulhu)
+
+# Gthulhu Scheduler Configuration
+scheduler:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: ghcr.io/gthulhu/gthulhu
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  
+  # Scheduler requires privileged access for BPF operations
+  securityContext:
+    privileged: true
+    runAsUser: 0
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - SYS_RESOURCE
+        - SYS_PTRACE
+  
+  # Host PID namespace is required for scheduler operations
+  hostPID: true
+  
+  # Node selector to ensure deployment on nodes with required kernel version
+  nodeSelector:
+    kubernetes.io/os: linux
+  
+  # Production resources for the scheduler
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  # Tolerations to allow scheduling on any node
+  tolerations:
+    - operator: Exists
+
+# Metrics API Server Configuration
+api:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: ghcr.io/gthulhu/gthulhu-api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  
+  # API server port configuration
+  port: 8080
+  targetPort: 8080
+  
+  # Host PID namespace is required for API operations
+  hostPID: true
+  
+  # API server needs access to host proc and K8s API
+  securityContext:
+    privileged: true
+    runAsUser: 0
+    capabilities:
+      add:
+        - SYS_PTRACE
+        - SYS_ADMIN
+      drop:
+        - NET_RAW
+  
+  # Node selector for API (inherit global if not specified)
+  nodeSelector:
+    kubernetes.io/os: linux
+  
+  # Tolerations to allow scheduling on any node
+  tolerations:
+    - operator: Exists
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  
+  # Ingress configuration - disabled by default, enable as needed
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations: {}
+      # kubernetes.io/tls-acme: "true"
+      # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - host: gthulhu-api.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    #  - secretName: gthulhu-api-tls
+    #    hosts:
+    #      - gthulhu-api.example.com
+  
+  # Health check configuration
+  healthCheck:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  # Production resources for the API server
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  # Horizontal Pod Autoscaler - enabled for production
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Global configuration
+global:
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Additional labels for all resources
+additionalLabels: {}
+
+# Node selector for all components (can be overridden per component)
+nodeSelector: {}
+
+# Tolerations for all components (can be overridden per component)
+tolerations: []
+
+# Affinity for all components (can be overridden per component)  
+affinity: {}
+
+# Storage configuration for metrics (if needed in future)
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# Monitoring and observability - enabled for production
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    labels: {}
+    interval: 30s
+    path: /metrics
