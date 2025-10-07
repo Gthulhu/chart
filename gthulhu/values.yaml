@@ -172,3 +172,44 @@ monitoring:
     labels: {}
     interval: 30s
     path: /metrics
+
+# GTP5G Operator Configuration (NEW!)
+gtp5gOperator:
+  # Enable GTP5G operator for 5G UPF kernel module management
+  enabled: false
+  
+  # Operator image configuration
+  operator:
+    image:
+      repository: localhost:5000/gtp5g-operator
+      tag: "latest"
+      pullPolicy: Always
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  
+  # Installer image configuration
+  installer:
+    image:
+      repository: localhost:5000/gtp5g-installer
+      tag: "latest"
+      pullPolicy: Always
+  
+  # GTP5G module configuration
+  module:
+    version: "v0.8.3"
+    nodeSelector:
+      gtp5g.gthulhu.io/enabled: "true"
+    kernelVersion: ""
+  
+  # RBAC and ServiceAccount
+  rbac:
+    create: true
+  serviceAccount:
+    create: true
+    name: "gtp5g-operator"
+    annotations: {}

@@ -1,0 +1,19 @@
+{{- if .Values.gtp5gOperator.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-gtp5g-operator-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gtp5g-operator
+spec:
+  ports:
+  - name: metrics
+    port: 8080
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    {{- include "gthulhu.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: gtp5g-operator
+{{- end }}

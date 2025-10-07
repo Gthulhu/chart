@@ -1,0 +1,61 @@
+{{- if .Values.gtp5gOperator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-gtp5g-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gtp5g-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gthulhu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: gtp5g-operator
+  template:
+    metadata:
+      labels:
+        {{- include "gthulhu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: gtp5g-operator
+    spec:
+      serviceAccountName: {{ .Values.gtp5gOperator.serviceAccount.name }}
+      containers:
+      - name: manager
+        image: "{{ .Values.gtp5gOperator.operator.image.repository }}:{{ .Values.gtp5gOperator.operator.image.tag }}"
+        imagePullPolicy: {{ .Values.gtp5gOperator.operator.image.pullPolicy }}
+        command:
+        - /manager
+        args:
+        - --leader-elect
+        - --metrics-bind-address=:8080
+        - --health-probe-bind-address=:8081
+        env:
+        - name: INSTALLER_IMAGE
+          value: "{{ .Values.gtp5gOperator.installer.image.repository }}:{{ .Values.gtp5gOperator.installer.image.tag }}"
+        - name: GTP5G_VERSION
+          value: {{ .Values.gtp5gOperator.module.version | quote }}
+        - name: KERNEL_VERSION
+          value: {{ .Values.gtp5gOperator.module.kernelVersion | quote }}
+        ports:
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.gtp5gOperator.operator.resources | nindent 10 }}
+{{- end }}
