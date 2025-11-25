@@ -1,16 +1,14 @@
-{{- if .Values.scheduler.enabled }}
+{{- if .Values.pod.enabled }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "gthulhu.fullname" . }}-scheduler
+  name: {{ include "gthulhu.fullname" . }}
   labels:
     {{- include "gthulhu.labels" . | nindent 4 }}
-    app.kubernetes.io/component: scheduler
 spec:
   selector:
     matchLabels:
       {{- include "gthulhu.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: scheduler
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -19,25 +17,30 @@ spec:
       {{- end }}
       labels:
         {{- include "gthulhu.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: scheduler
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gthulhu.serviceAccountName" . }}
-      hostPID: {{ .Values.scheduler.hostPID }}
-      securityContext:
-        {{- toYaml .Values.scheduler.securityContext | nindent 8 }}
+      hostPID: {{ .Values.pod.hostPID }}
       containers:
+        # Scheduler container
         - name: gthulhu-scheduler
-          image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
+          image: "{{ .Values.pod.scheduler.image.repository }}:{{ .Values.pod.scheduler.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.pod.scheduler.image.pullPolicy }}
           securityContext:
-            {{- toYaml .Values.scheduler.securityContext | nindent 12 }}
+            privileged: {{ .Values.pod.securityContext.privileged }}
+            runAsUser: {{ .Values.pod.securityContext.runAsUser }}
+            {{- with .Values.pod.schedulerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
           command:
-            - /gthulhu/main 
-          args: ["-config", "/etc/gthulhu/config.yaml"]
+            - /gthulhu/main
+          args:
+            - "-config"
+            - "/etc/gthulhu/config.yaml"
           volumeMounts:
             - name: sys-kernel-debug
               mountPath: /sys/kernel/debug
@@ -49,7 +52,57 @@ spec:
               mountPath: /etc/gthulhu
               readOnly: true
           resources:
-            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+            {{- toYaml .Values.pod.scheduler.resources | nindent 12 }}
+        {{- if .Values.pod.api.enabled }}
+        # API server sidecar container
+        - name: gthulhu-api
+          image: "{{ .Values.pod.api.image.repository }}:{{ .Values.pod.api.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.pod.api.image.pullPolicy }}
+          securityContext:
+            privileged: {{ .Values.pod.securityContext.privileged }}
+            runAsUser: {{ .Values.pod.securityContext.runAsUser }}
+            {{- with .Values.pod.apiSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+          command:
+            - /app/main
+          args:
+            - "-config"
+            - "/etc/gthulhu/config.json"
+            - "--in-cluster=true"
+          ports:
+            - name: http
+              containerPort: {{ .Values.pod.api.port }}
+              protocol: TCP
+          {{- if .Values.pod.api.healthCheck.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.pod.api.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.pod.api.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.pod.api.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.pod.api.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.pod.api.healthCheck.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.pod.api.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.pod.api.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.pod.api.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.pod.api.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.pod.api.healthCheck.failureThreshold }}
+          {{- end }}
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: api-config-volume
+              mountPath: /etc/gthulhu
+              readOnly: true
+          resources:
+            {{- toYaml .Values.pod.api.resources | nindent 12 }}
+        {{- end }}
       volumes:
         - name: sys-kernel-debug
           hostPath:
@@ -60,103 +113,16 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "gthulhu.fullname" . }}-scheduler-config
-      {{- with .Values.scheduler.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.scheduler.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
----
-{{- end }}
-{{- if .Values.api.enabled }}
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: {{ include "gthulhu.fullname" . }}-api
-  labels:
-    {{- include "gthulhu.labels" . | nindent 4 }}
-    app.kubernetes.io/component: api
-spec:
-  selector:
-    matchLabels:
-      {{- include "gthulhu.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: api
-  template:
-    metadata:
-      {{- with .Values.podAnnotations }}
-      annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      labels:
-        {{- include "gthulhu.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: api
-    spec:
-      {{- with .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "gthulhu.serviceAccountName" . }}
-      hostPID: {{ .Values.api.hostPID }}
-      securityContext:
-        {{- toYaml .Values.api.securityContext | nindent 8 }}
-      containers:
-        - name: gthulhu-api
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
-          securityContext:
-            {{- toYaml .Values.api.securityContext | nindent 12 }}
-          command:
-            - /app/main 
-          args: ["-config", "/etc/gthulhu/config.json", "--in-cluster=true"]
-          ports:
-            - name: http
-              containerPort: {{ .Values.api.port }}
-              protocol: TCP
-          {{- if .Values.api.healthCheck.enabled }}
-          livenessProbe:
-            httpGet:
-              path: {{ .Values.api.healthCheck.path }}
-              port: http
-            initialDelaySeconds: {{ .Values.api.healthCheck.initialDelaySeconds }}
-            periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
-            timeoutSeconds: {{ .Values.api.healthCheck.timeoutSeconds }}
-            failureThreshold: {{ .Values.api.healthCheck.failureThreshold }}
-          readinessProbe:
-            httpGet:
-              path: {{ .Values.api.healthCheck.path }}
-              port: http
-            initialDelaySeconds: {{ .Values.api.healthCheck.initialDelaySeconds }}
-            periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
-            timeoutSeconds: {{ .Values.api.healthCheck.timeoutSeconds }}
-            failureThreshold: {{ .Values.api.healthCheck.failureThreshold }}
-          {{- end }}
-          volumeMounts:
-            - name: proc
-              mountPath: /host/proc
-              readOnly: true
-            - name: config-volume
-              mountPath: /etc/gthulhu
-              readOnly: true
-          resources:
-            {{- toYaml .Values.api.resources | nindent 12 }}
-      volumes:
-        - name: proc
-          hostPath:
-            path: /proc
-        - name: config-volume
+        {{- if .Values.pod.api.enabled }}
+        - name: api-config-volume
           configMap:
             name: {{ include "gthulhu.fullname" . }}-api-config
-      {{- with .Values.api.nodeSelector }}
+        {{- end }}
+      {{- with .Values.pod.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.api.tolerations }}
+      {{- with .Values.pod.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
