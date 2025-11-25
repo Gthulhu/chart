@@ -1,4 +1,4 @@
-{{- if .Values.scheduler.enabled }}
+{{- if .Values.pod.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -29,12 +29,12 @@ data:
     scheduler:
       # Default time slice in nanoseconds (default: 5000000 = 5ms)
       slice_ns_default: 5000000
-      
+
       # Minimum time slice in nanoseconds (default: 500000 = 0.5ms)
       slice_ns_min: 500000
     api:
       enabled: true
-      url: http://gthulhu-api:80
+      url: http://localhost:8080
       interval: 5
       public_key_path: /etc/gthulhu/jwt_public_key.pem
     debug: true
@@ -42,7 +42,7 @@ data:
     builtin_idle: false
 {{- end }}
 ---
-{{- if .Values.api.enabled }}
+{{- if .Values.pod.api.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -107,7 +107,7 @@ data:
   config.json: |
     {
       "server": {
-        "port": ":{{ .Values.api.port }}",
+        "port": ":{{ .Values.pod.api.port }}",
         "read_timeout": 15,
         "write_timeout": 15,
         "idle_timeout": 60
