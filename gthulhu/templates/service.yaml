@@ -1,4 +1,4 @@
-{{- if .Values.api.enabled }}
+{{- if .Values.service.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -7,13 +7,12 @@ metadata:
     {{- include "gthulhu.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
-  type: {{ .Values.api.service.type }}
+  type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.api.service.port }}
-      targetPort: {{ .Values.api.service.targetPort }}
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
       name: http
   selector:
     {{- include "gthulhu.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: api
 {{- end }}
