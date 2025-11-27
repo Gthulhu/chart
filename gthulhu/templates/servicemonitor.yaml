@@ -1,4 +1,4 @@
-{{- if and .Values.api.enabled .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+{{- if and .Values.service.enabled .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -13,7 +13,6 @@ spec:
   selector:
     matchLabels:
       {{- include "gthulhu.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: api
   endpoints:
     - port: http
       path: {{ .Values.monitoring.path }}

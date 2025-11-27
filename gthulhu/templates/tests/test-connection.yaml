@@ -1,4 +1,4 @@
-{{- if .Values.api.enabled }}
+{{- if .Values.service.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -12,6 +12,6 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "gthulhu.fullname" . }}-api:{{ .Values.api.service.port }}/health']
+      args: ['{{ include "gthulhu.fullname" . }}-api:{{ .Values.service.port }}/health']
   restartPolicy: Never
 {{- end }}
