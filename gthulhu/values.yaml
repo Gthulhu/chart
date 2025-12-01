@@ -2,129 +2,114 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# Gthulhu Scheduler Configuration
-scheduler:
+# Gthulhu Pod Configuration (Sidecar Pattern)
+# The pod contains both the scheduler and API server as sidecars
+pod:
   enabled: true
-  replicaCount: 1
-  
-  image:
-    repository: 127.0.0.1:32000/gthulhu
-    pullPolicy: Always
-    tag: "latest"
-  
-  # Scheduler requires privileged access for BPF operations
+
+  # Scheduler container configuration
+  scheduler:
+    image:
+      repository: 127.0.0.1:32000/gthulhu
+      pullPolicy: Always
+      tag: "latest"
+
+    # Resources for the scheduler
+    resources:
+      limits:
+        # cpu: 500m
+        memory: 512Mi
+      requests:
+        # cpu: 100m
+        memory: 128Mi
+
+  # API server container configuration (sidecar)
+  api:
+    enabled: true
+    image:
+      repository: 127.0.0.1:32000/gthulhu-api
+      pullPolicy: Always
+      tag: "latest"
+
+    # API server port configuration
+    port: 8080
+
+    # Health check configuration
+    healthCheck:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+    # Resources for the API server
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Pod-level security context
   securityContext:
     privileged: true
     runAsUser: 0
+
+  # Scheduler container security context
+  schedulerSecurityContext:
     capabilities:
       add:
         - SYS_ADMIN
         - SYS_RESOURCE
         - SYS_PTRACE
-  
-  # Host PID namespace is required for scheduler operations
-  hostPID: true
-  
-  # Node selector to ensure deployment on nodes with required kernel version
-  nodeSelector:
-    kubernetes.io/os: linux
-  
-  # Resources for the scheduler
-  resources:
-    limits:
-      # cpu: 500m
-      memory: 512Mi
-    requests:
-      # cpu: 100m
-      memory: 128Mi
-  
-  # Tolerations to allow scheduling on any node
-  tolerations:
-    - operator: Exists
 
-# Metrics API Server Configuration
-api:
-  enabled: true
-  replicaCount: 1
-  
-  image:
-    repository: 127.0.0.1:32000/gthulhu-api
-    pullPolicy: Always
-    tag: "latest"
-  
-  # API server port configuration
-  port: 8080
-  targetPort: 8080
-  
-  # Host PID namespace is required for API operations
-  hostPID: true
-  
-  # API server needs access to host proc and K8s API
-  securityContext:
-    privileged: true
-    runAsUser: 0
+  # API server container security context
+  apiSecurityContext:
     capabilities:
       add:
         - SYS_PTRACE
         - SYS_ADMIN
       drop:
         - NET_RAW
-  
-  # Node selector for API (inherit global if not specified)
+
+  # Host PID namespace is required for both scheduler and API operations
+  hostPID: true
+
+  # Node selector to ensure deployment on nodes with required kernel version
   nodeSelector:
     kubernetes.io/os: linux
-  
+
   # Tolerations to allow scheduling on any node
   tolerations:
     - operator: Exists
-  
-  # Service configuration
-  service:
-    type: ClusterIP
-    port: 80
-    targetPort: 8080
-  
-  # Ingress configuration
-  ingress:
-    enabled: false
-    className: ""
-    annotations: {}
-      # kubernetes.io/ingress.class: nginx
-      # kubernetes.io/tls-acme: "true"
-    hosts:
-      - host: gthulhu-api.local
-        paths:
-          - path: /
-            pathType: ImplementationSpecific
-    tls: []
-    #  - secretName: gthulhu-api-tls
-    #    hosts:
-    #      - gthulhu-api.local
-  
-  # Health check configuration
-  healthCheck:
-    enabled: true
-    path: /health
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 3
-  
-  # Resources for the API server
-  resources:
-    limits:
-      cpu: 200m
-      memory: 256Mi
-    requests:
-      cpu: 50m
-      memory: 64Mi
-  
-  # Horizontal Pod Autoscaler
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 5
-    targetCPUUtilizationPercentage: 80
+
+# Service configuration (optional, for external access to API)
+service:
+  # Set to false for sidecar-only deployment (localhost communication)
+  # Set to true if you need external access to the API
+  enabled: false
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: gthulhu-api.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: gthulhu-api-tls
+  #    hosts:
+  #      - gthulhu-api.local
 
 # Global configuration
 global:
@@ -171,4 +156,11 @@ monitoring:
     enabled: false
     labels: {}
     interval: 30s
-    path: /metrics
+  path: /metrics
+
+# Horizontal Pod Autoscaler (not recommended for schedulers)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
