@@ -1,0 +1,309 @@
+{{- if .Values.mongodb.enabled }}
+# MongoDB Keyfile Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-mongodb-keyfile
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mongodb
+type: Opaque
+stringData:
+  keyfile: |
+    4i7woinZw/LD3KQCXr6Kqrd1UOHLHVLkbPkzGbCSLLrSRu059nUXo4J9epVbwYB4
+    xVAwBa4VawfpUXmcqoeXPcEXtfWamkhoNxPL6jBkrzc6nYIDSh/i8vlzG0OO834i
+    C60pwBNA0j1C0kjUG8xUgLV/rFoHYVDHNQVhgxuWSMwFcQH+QHERTz+R7DUY7GYj
+    /Y8ky2bmYuuyyXj7nyOpHerwDy95vmwInJFddJLw385hjc2bkHJTgBDDxXMagwgB
+    Kxf4LOOTcYoB6dabkjW0Y7DrXHo8FkIQQQKfxb/HjTjS3EXiJW1aPOdSAbiTmatP
+    qjuwPW9t8HX+8Q3WrseGBpSRbX8221xV6fcHRoSgDe2W6XL8kMegOgjDccJn5Z/0
+    dniQ70vEeefaCDizRu6hm117a5feiqgOrqBteHR7llJ4Viz/QmMw4riby8c2N4ie
+    wWLanKk2qzCUXciefKy3IEgVqJE1yOgaKm805YA15ROvr68Nbke4A7cQVwK+bsRj
+    Ftj/Ts8uGr/pnKL4y1DVMRaNUldnJJgoyJEUspad9JW+iIDsn3G3giF1KdJjduP9
+    xiGNyw4WQi75gETiFGJTEBDiZ500UibJ/P3AJTVIzC4lquybcYCi9vIinC5rj82q
+    SbhiS66P05fhHgvvbtEsVoBZ+oRiX9LGIFCx0/2iLfaum/6xR6mwCLtNVcuJCaGc
+    zwlEMDa7ihYOGnaErg9gpB6qfbzq3OlHleHEeEpNlr6d5vO6+QoP+czvqkWvqgSG
+    FjpfgVGOi2T8ckgQqTl+VMTcBVfFlxQu/lqFuxnHpmxf0IgVikpl2021FOtAil8G
+    51/vYMb2qYpmkrxaYTN6fVmEH1mbKcxEMelCMg1f08bxY14HlHg/RU7Z3e4X78bf
+    JQOxvVmdzFSoCP7yekaoOYqV9ZaDQb5cWlR4sF41hB2mjunFQ4YP6OoiHg8/EJu5
+    YbZ4byJMSn0Cphwx9CdQQHXOBSKRPC+8KLcSyPHxUM2B6hyD
+---
+# MongoDB Auth Secret
+{{- if not .Values.mongodb.auth.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mongodb
+type: Opaque
+stringData:
+  MONGO_INITDB_ROOT_USERNAME: {{ .Values.mongodb.auth.rootUsername }}
+  MONGO_INITDB_ROOT_PASSWORD: {{ .Values.mongodb.auth.rootPassword }}
+{{- end }}
+---
+# MongoDB StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-mongodb
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mongodb
+spec:
+  serviceName: {{ include "gthulhu.fullname" . }}-mongodb
+  replicas: {{ .Values.mongodb.replicaSet.replicas }}
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      {{- include "gthulhu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mongodb
+  template:
+    metadata:
+      labels:
+        {{- include "gthulhu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mongodb
+    spec:
+      terminationGracePeriodSeconds: 30
+
+      initContainers:
+        - name: fix-keyfile-permissions
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /etc/mongo-keyfile-source/keyfile /etc/mongo-keyfile/keyfile
+              chmod 400 /etc/mongo-keyfile/keyfile
+              chown 999:999 /etc/mongo-keyfile/keyfile
+          volumeMounts:
+            - name: keyfile-source
+              mountPath: /etc/mongo-keyfile-source
+              readOnly: true
+            - name: mongo-keyfile-processed
+              mountPath: /etc/mongo-keyfile
+
+      containers:
+        - name: mongo
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          imagePullPolicy: {{ .Values.mongodb.image.pullPolicy }}
+
+          command:
+            - mongod
+          args:
+            - --bind_ip_all
+            - --replSet
+            - {{ .Values.mongodb.replicaSet.name }}
+            - --dbpath
+            - /data/db
+            - --auth
+            - --keyFile
+            - /etc/mongo-keyfile/keyfile
+
+          ports:
+            - name: mongo
+              containerPort: 27017
+
+          # Note: Replica set initialization is handled by the init-mongodb Job
+
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          volumeMounts:
+            - name: mongo-data
+              mountPath: /data/db
+            - name: mongo-keyfile-processed
+              mountPath: /etc/mongo-keyfile
+              readOnly: true
+
+          env:
+            - name: MONGO_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.mongodb.auth.existingSecret }}
+                  name: {{ .Values.mongodb.auth.existingSecret }}
+                  {{- else }}
+                  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
+                  {{- end }}
+                  key: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.mongodb.auth.existingSecret }}
+                  name: {{ .Values.mongodb.auth.existingSecret }}
+                  {{- else }}
+                  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
+                  {{- end }}
+                  key: MONGO_INITDB_ROOT_PASSWORD
+
+          resources:
+            {{- toYaml .Values.mongodb.resources | nindent 12 }}
+
+      securityContext:
+        {{- toYaml .Values.mongodb.securityContext | nindent 8 }}
+
+      volumes:
+        - name: keyfile-source
+          secret:
+            secretName: {{ include "gthulhu.fullname" . }}-mongodb-keyfile
+            defaultMode: 0400
+        - name: mongo-keyfile-processed
+          emptyDir: {}
+
+  {{- if .Values.mongodb.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-data
+      spec:
+        accessModes: ["{{ .Values.mongodb.persistence.accessMode }}"]
+        resources:
+          requests:
+            storage: {{ .Values.mongodb.persistence.size }}
+        {{- if .Values.mongodb.persistence.storageClass }}
+        storageClassName: {{ .Values.mongodb.persistence.storageClass }}
+        {{- end }}
+  {{- else }}
+      - name: mongo-data
+        emptyDir: {}
+  {{- end }}
+---
+# MongoDB Initialization Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "gthulhu.fullname" . }}-mongodb-init
+  labels:
+    {{- include "gthulhu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mongodb-init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "gthulhu.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mongodb-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mongodb-init
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          imagePullPolicy: {{ .Values.mongodb.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              MONGO_HOST="{{ include "gthulhu.fullname" . }}-mongodb-0.{{ include "gthulhu.fullname" . }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local:27017"
+              
+              echo "[init] Waiting for MongoDB to be ready..."
+              until mongosh --host "$MONGO_HOST" --quiet --eval 'db.adminCommand({ ping: 1 })' 2>/dev/null; do
+                echo "[init] MongoDB not ready, retrying in 5 seconds..."
+                sleep 5
+              done
+
+              echo "[init] MongoDB is ready. Checking replica set status..."
+              
+              # Check if replica set is already initialized (try without auth first, then with auth)
+              RS_STATUS=$(mongosh --host "$MONGO_HOST" --quiet --eval 'try { rs.status().ok } catch(e) { 0 }' 2>/dev/null || echo "0")
+              
+              if [ "$RS_STATUS" = "1" ]; then
+                echo "[init] Replica set already initialized (no auth needed or localhost exception)"
+              else
+                # Try with authentication
+                RS_STATUS_AUTH=$(mongosh --host "$MONGO_HOST" -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval 'try { rs.status().ok } catch(e) { 0 }' 2>/dev/null || echo "0")
+                if [ "$RS_STATUS_AUTH" = "1" ]; then
+                  echo "[init] Replica set already initialized (verified with auth)"
+                else
+                  echo "[init] Initializing replica set..."
+                  # MongoDB allows localhost exception for first user creation and rs.initiate
+                  mongosh --host "$MONGO_HOST" --quiet --eval '
+                    rs.initiate({
+                      _id: "{{ .Values.mongodb.replicaSet.name }}",
+                      members: [
+                        { _id: 0, host: "{{ include "gthulhu.fullname" . }}-mongodb-0.{{ include "gthulhu.fullname" . }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local:27017" }
+                      ]
+                    });
+                  ' 2>/dev/null || echo "[init] rs.initiate might have already been done"
+                  echo "[init] Replica set initiation attempted"
+                fi
+              fi
+
+              echo "[init] Waiting for primary election..."
+              for i in $(seq 1 30); do
+                IS_PRIMARY=$(mongosh --host "$MONGO_HOST" --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null || echo "false")
+                if [ "$IS_PRIMARY" = "true" ]; then
+                  echo "[init] Primary is ready"
+                  break
+                fi
+                # Try with auth
+                IS_PRIMARY_AUTH=$(mongosh --host "$MONGO_HOST" -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null || echo "false")
+                if [ "$IS_PRIMARY_AUTH" = "true" ]; then
+                  echo "[init] Primary is ready (verified with auth)"
+                  break
+                fi
+                echo "[init] Waiting for primary... ($i/30)"
+                sleep 2
+              done
+
+              echo "[init] Checking/creating admin user..."
+              # First try without auth (localhost exception)
+              mongosh --host "$MONGO_HOST" --quiet --eval '
+                db = db.getSiblingDB("admin");
+                try {
+                  const users = db.getUsers();
+                  const adminExists = users.users && users.users.some(u => u.user === "'"$MONGO_ROOT_USERNAME"'");
+                  if (adminExists) {
+                    print("Admin user already exists");
+                  } else {
+                    db.createUser({
+                      user: "'"$MONGO_ROOT_USERNAME"'",
+                      pwd: "'"$MONGO_ROOT_PASSWORD"'",
+                      roles: [{ role: "root", db: "admin" }]
+                    });
+                    print("Admin user created");
+                  }
+                } catch (e) {
+                  print("Auth required, checking with credentials...");
+                }
+              ' 2>/dev/null || true
+              
+              # Verify with auth
+              mongosh --host "$MONGO_HOST" -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval '
+                db = db.getSiblingDB("admin");
+                print("Successfully authenticated as admin user");
+              ' && echo "[init] MongoDB initialization complete!" || echo "[init] Warning: Could not verify admin authentication"
+              
+              echo "[init] MongoDB initialization complete!"
+          env:
+            - name: MONGO_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.mongodb.auth.existingSecret }}
+                  name: {{ .Values.mongodb.auth.existingSecret }}
+                  {{- else }}
+                  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
+                  {{- end }}
+                  key: MONGO_INITDB_ROOT_USERNAME
+            - name: MONGO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.mongodb.auth.existingSecret }}
+                  name: {{ .Values.mongodb.auth.existingSecret }}
+                  {{- else }}
+                  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
+                  {{- end }}
+                  key: MONGO_INITDB_ROOT_PASSWORD
+{{- end }}
