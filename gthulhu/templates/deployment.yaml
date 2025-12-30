@@ -20,6 +20,9 @@ spec:
       labels:
         {{- include "gthulhu.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: scheduler
+        {{- if .Values.scheduler.sidecar.enabled }}
+        app: decisionmaker
+        {{- end }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:

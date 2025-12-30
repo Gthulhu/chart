@@ -255,8 +255,8 @@ persistence:
 # Monitoring and observability
 monitoring:
   enabled: false
+  path: /metrics
   serviceMonitor:
     enabled: false
     labels: {}
     interval: 30s
-    path: /metrics
