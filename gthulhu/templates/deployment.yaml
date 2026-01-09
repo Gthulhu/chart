@@ -173,7 +173,7 @@ spec:
               value: {{ .Values.global.timezone | quote }}
             {{- if .Values.mongodb.enabled }}
             - name: MANAGER_MONGODB_HOST
-              value: "{{ include "gthulhu.fullname" . }}-mongodb-0.{{ include "gthulhu.fullname" . }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local"
+              value: {{ include "gthulhu.mongodbHost" . | quote }}
             - name: MANAGER_MONGODB_PORT
               value: "27017"
             - name: MANAGER_MONGODB_DATABASE
@@ -182,29 +182,16 @@ spec:
               value: {{ .Values.mongodb.connectionOptions | quote }}
             - name: MANAGER_MONGODB_CA_PEM
               value: ""
-            {{- if .Values.mongodb.auth.existingSecret }}
             - name: MANAGER_MONGODB_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.mongodb.auth.existingSecret }}
+                  name: {{ include "gthulhu.mongodbAuthSecretName" . }}
                   key: MONGO_INITDB_ROOT_USERNAME
             - name: MANAGER_MONGODB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.mongodb.auth.existingSecret }}
+                  name: {{ include "gthulhu.mongodbAuthSecretName" . }}
                   key: MONGO_INITDB_ROOT_PASSWORD
-            {{- else }}
-            - name: MANAGER_MONGODB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
-                  key: MONGO_INITDB_ROOT_USERNAME
-            - name: MANAGER_MONGODB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "gthulhu.fullname" . }}-mongodb-auth
-                  key: MONGO_INITDB_ROOT_PASSWORD
-            {{- end }}
             {{- end }}
           ports:
             - name: http

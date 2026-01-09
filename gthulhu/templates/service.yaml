@@ -38,24 +38,3 @@ spec:
     {{- include "gthulhu.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: scheduler
 {{- end }}
----
-{{- if .Values.mongodb.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "gthulhu.fullname" . }}-mongodb
-  labels:
-    {{- include "gthulhu.labels" . | nindent 4 }}
-    app.kubernetes.io/component: mongodb
-spec:
-  # Headless service for StatefulSet
-  clusterIP: None
-  ports:
-    - port: 27017
-      targetPort: 27017
-      protocol: TCP
-      name: mongo
-  selector:
-    {{- include "gthulhu.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: mongodb
-{{- end }}

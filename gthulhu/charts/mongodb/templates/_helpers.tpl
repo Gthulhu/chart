@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "gthulhu.name" -}}
+{{- define "mongodb.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "gthulhu.fullname" -}}
+{{- define "mongodb.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "gthulhu.chart" -}}
+{{- define "mongodb.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "gthulhu.labels" -}}
-helm.sh/chart: {{ include "gthulhu.chart" . }}
-{{ include "gthulhu.selectorLabels" . }}
+{{- define "mongodb.labels" -}}
+helm.sh/chart: {{ include "mongodb.chart" . }}
+{{ include "mongodb.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,36 +45,25 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "gthulhu.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "gthulhu.name" . }}
+{{- define "mongodb.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "mongodb.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+MongoDB host for connection string
 */}}
-{{- define "gthulhu.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "gthulhu.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- define "mongodb.host" -}}
+{{ include "mongodb.fullname" . }}-0.{{ include "mongodb.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
 {{- end }}
 
 {{/*
-MongoDB host for connection string (referencing subchart)
+MongoDB auth secret name
 */}}
-{{- define "gthulhu.mongodbHost" -}}
-{{ .Release.Name }}-mongodb-0.{{ .Release.Name }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local
-{{- end }}
-
-{{/*
-MongoDB auth secret name (referencing subchart)
-*/}}
-{{- define "gthulhu.mongodbAuthSecretName" -}}
-{{- if .Values.mongodb.auth.existingSecret }}
-{{- .Values.mongodb.auth.existingSecret }}
+{{- define "mongodb.authSecretName" -}}
+{{- if .Values.auth.existingSecret }}
+{{- .Values.auth.existingSecret }}
 {{- else }}
-{{- printf "%s-mongodb-auth" .Release.Name }}
+{{- include "mongodb.fullname" . }}-auth
 {{- end }}
 {{- end }}

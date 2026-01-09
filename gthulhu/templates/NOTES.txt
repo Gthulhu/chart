@@ -53,7 +53,7 @@ You can check the sidecar logs with:
 MongoDB is running as a StatefulSet for data persistence.
 
 You can check the MongoDB status with:
-  kubectl get statefulset {{ include "gthulhu.fullname" . }}-mongodb -n {{ .Release.Namespace }}
+  kubectl get statefulset {{ .Release.Name }}-mongodb -n {{ .Release.Namespace }}
   kubectl logs -l app.kubernetes.io/component=mongodb -n {{ .Release.Namespace }}
 
 {{- end }}
