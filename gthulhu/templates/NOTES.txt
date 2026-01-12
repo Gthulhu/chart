@@ -1,47 +1,68 @@
 1. Gthulhu has been deployed to your Kubernetes cluster!
 
-{{- if .Values.pod.enabled }}
+{{- if .Values.scheduler.enabled }}
 
 ** Gthulhu Scheduler **
 The BPF scheduler is running as a DaemonSet on all nodes.
 You can check the scheduler status with:
 
-  kubectl get daemonset {{ include "gthulhu.fullname" . }} -n {{ .Release.Namespace }}
-  kubectl logs -l app.kubernetes.io/name={{ include "gthulhu.name" . }} -c gthulhu-scheduler -n {{ .Release.Namespace }}
+  kubectl get daemonset {{ include "gthulhu.fullname" . }}-scheduler -n {{ .Release.Namespace }}
+  kubectl logs -l app.kubernetes.io/component=scheduler -n {{ .Release.Namespace }}
 
 {{- end }}
 
-{{- if .Values.pod.api.enabled }}
+{{- if .Values.manager.enabled }}
 
-** BSS Metrics API Server **
-{{- if .Values.ingress.enabled }}
-{{- range $host := .Values.ingress.hosts }}
+** Gthulhu Manager **
+The Manager is running as a Deployment (replicas=1).
+Manager provides frontend and user-related APIs, accepts user intents.
+
+You can check the manager status with:
+  kubectl get deployment {{ include "gthulhu.fullname" . }}-manager -n {{ .Release.Namespace }}
+  kubectl logs -l app.kubernetes.io/component=manager -n {{ .Release.Namespace }}
+
+{{- if .Values.manager.ingress.enabled }}
+Manager API is accessible at:
+{{- range $host := .Values.manager.ingress.hosts }}
   {{- range .paths }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  http{{ if $.Values.manager.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}
 {{- end }}
-{{- else if and .Values.service.enabled (contains "NodePort" .Values.service.type) }}
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "gthulhu.fullname" . }}-api)
-  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo http://$NODE_IP:$NODE_PORT
-{{- else if and .Values.service.enabled (contains "LoadBalancer" .Values.service.type) }}
-     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "gthulhu.fullname" . }}-api'
-  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "gthulhu.fullname" . }}-api --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
-  echo http://$SERVICE_IP:{{ .Values.service.port }}
-{{- else if and .Values.service.enabled (contains "ClusterIP" .Values.service.type) }}
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "gthulhu.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[1].ports[0].containerPort}")
-  echo "Visit http://127.0.0.1:8080 to use your application"
-  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- else if contains "ClusterIP" .Values.manager.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=manager,app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  echo "Visit http://127.0.0.1:8080 to access Manager API"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:{{ .Values.manager.port }}
 {{- end }}
 
-API Endpoints:
-  POST /api/v1/metrics - Submit BSS metrics data
-  GET  /health         - Health check
-  GET  /               - API information
+{{- end }}
+
+{{- if and .Values.scheduler.enabled .Values.scheduler.sidecar.enabled }}
+
+** Gthulhu Scheduler Sidecar **
+The Scheduler Sidecar is running alongside the scheduler in the DaemonSet.
+Sidecar shares PID namespace with the host and finds matching PIDs based on intent from Manager.
+
+You can check the sidecar logs with:
+  kubectl logs -l app.kubernetes.io/component=scheduler -c scheduler-sidecar -n {{ .Release.Namespace }}
 
 {{- end }}
+
+{{- if .Values.mongodb.enabled }}
+
+** MongoDB **
+MongoDB is running as a StatefulSet for data persistence.
+
+You can check the MongoDB status with:
+  kubectl get statefulset {{ .Release.Name }}-mongodb -n {{ .Release.Namespace }}
+  kubectl logs -l app.kubernetes.io/component=mongodb -n {{ .Release.Namespace }}
+
+{{- end }}
+
+** API Endpoints (Manager) **
+  POST /api/v1/intents   - Submit scheduling intents
+  GET  /api/v1/nodes     - Get node load distribution
+  GET  /health           - Health check
+  GET  /                 - API information
 
 ** Monitoring **
 {{- if .Values.monitoring.enabled }}
@@ -54,5 +75,6 @@ To enable monitoring, set monitoring.enabled=true in your values.yaml
 - The scheduler requires Linux kernel 6.12+ with sched_ext support
 - Nodes must have the necessary BPF capabilities
 - The scheduler runs with privileged access for BPF operations
+- Decision Maker requires hostPID access to discover process PIDs
 
 For more information, visit: https://github.com/Gthulhu/Gthulhu

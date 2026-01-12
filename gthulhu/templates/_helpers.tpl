@@ -60,3 +60,21 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+MongoDB host for connection string (referencing subchart)
+*/}}
+{{- define "gthulhu.mongodbHost" -}}
+{{ .Release.Name }}-mongodb-0.{{ .Release.Name }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local
+{{- end }}
+
+{{/*
+MongoDB auth secret name (referencing subchart)
+*/}}
+{{- define "gthulhu.mongodbAuthSecretName" -}}
+{{- if .Values.mongodb.auth.existingSecret }}
+{{- .Values.mongodb.auth.existingSecret }}
+{{- else }}
+{{- printf "%s-mongodb-auth" .Release.Name }}
+{{- end }}
+{{- end }}
