@@ -21,6 +21,8 @@ $ helm uninstall gthulhu
 
 ## Testing
 
+### API Manager
+
 To access the Gthulhu API, you can set up port forwarding using kubectl:
 ```bash
 $ kubectl port-forward svc/gthulhu-manager 8080:8080
@@ -58,6 +60,27 @@ You can also retrieve your own strategies using the following curl command:
 $ curl http://localhost:8080/api/v1/strategies/self \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>"
+```
+
+### List all intents from decision maker
+
+```bash
+$ curl -X POST http://127.0.0.1:8080/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "public_key": "-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAny28YMC2/+yYj3T29lz6\n0uryNz8gNVrqD7lTJuHQ3DMTE6ADqnERy8VgHve0tWzhJc5ZBZ1Hduvj+z/kNqbc\nU81YGhmfOrQ3iFNYBlSAseIHdAw39HGyC6OKzTXI4HRpc8CwcF6hKExkyWlkALr5\ni+IQDfimvarjjZ6Nm368L0Rthv3KOkI5CqRZ6bsVwwBug7GcdkvFs3LiRSKlMBpH\n2tCkZ5ZZE8VyuK7VnlwV7n6EHzN5BqaHq8HVLw2KzvibSi+/5wIZV2Yx33tViLbh\nOsZqLt6qQCGGgKzNX4TGwRLGAiVV1NCpgQhimZ4YP2thqSsqbaISOuvFlYq+QGP1\nbcvcHB7UhT1ZnHSDYcbT2qiD3VoqytXVKLB1X5XCD99YLSP9B32f1lvZD4MhDtE4\nIhAuqn15MGB5ct4yj/uMldFScs9KhqnWcwS4K6Qx3IfdB+ZxT5hEOWJLEcGqe/CS\nXITNG7oS9mrSAJJvHSLz++4R/Sh1MnT2YWjyDk6qeeqAwut0w5iDKWt7qsGEcHFP\nIVVlos+xLfrPDtgHQk8upjslUcMyMDTf21Y3RdJ3k1gTR9KHEwzKeiNlLjen9ekF\nWupF8jik1aYRWL6h54ZyGxwKEyMYi9o18G2pXPzvVaPYtU+TGXdO4QwiES72TNCD\nbNaGj75Gj0sN+LfjjQ4A898CAwEAAQ==\n-----END PUBLIC KEY-----",
+    "client_id": "gthulhu-scheduler",
+    "expired_at": 1736899200
+  }'
+
+$ curl 127.0.0.1:8080/api/v1/scheduling/strategies -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+### View Scheduler Sidecar (decision maker) Logs
+
+```bash
+$ kubectl logs gthulhu-scheduler-hqflq -c scheduler-sidecar
 ```
 
 ## Licence

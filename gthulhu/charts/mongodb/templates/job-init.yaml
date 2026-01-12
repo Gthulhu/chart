@@ -1,4 +1,12 @@
-{{- if .Values.enabled }}
+{{- /* 
+  MongoDB initialization is now handled by the StatefulSet's postStart lifecycle hook.
+  This Job is disabled to avoid race conditions.
+  The postStart hook runs directly in the MongoDB container, ensuring:
+  1. The mongod process is ready before initialization
+  2. No network latency or DNS resolution issues
+  3. Proper localhost exception for initial user creation
+*/ -}}
+{{- if false }}
 # MongoDB Initialization Job
 apiVersion: batch/v1
 kind: Job

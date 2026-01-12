@@ -60,7 +60,70 @@ spec:
             - name: mongo
               containerPort: 27017
 
-          # Note: Replica set initialization is handled by the init-mongodb Job
+          # Replica set initialization via postStart lifecycle hook
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    set -e
+
+                    # Only initialize on the first pod (mongo-0)
+                    HOSTNAME=$(hostname)
+                    if [ "$HOSTNAME" != "{{ include "mongodb.fullname" . }}-0" ]; then
+                      echo "[postStart] Not the primary pod, skip init"
+                      exit 0
+                    fi
+
+                    echo "[postStart] Waiting for mongod to be ready..."
+                    until mongosh --host localhost:27017 --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do
+                      sleep 2
+                    done
+
+                    echo "[postStart] Init replica set if needed..."
+                    mongosh --host localhost:27017 --quiet --eval '
+                      try {
+                        rs.status();
+                        print("Replica set already initialized");
+                      } catch (e) {
+                        rs.initiate({
+                          _id: "{{ .Values.replicaSet.name }}",
+                          members: [
+                            { _id: 0, host: "{{ include "mongodb.fullname" . }}-0.{{ include "mongodb.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:27017" }
+                          ]
+                        });
+                        print("Replica set initiated");
+                      }
+
+                      // Wait for primary election
+                      print("Waiting for primary election...");
+                      while (true) {
+                        const hello = db.hello();
+                        if (hello.isWritablePrimary) {
+                          print("Primary is ready");
+                          break;
+                        }
+                        sleep(1000);
+                      }
+
+                      // Create admin user if not exists
+                      db = db.getSiblingDB("admin");
+                      try {
+                        db.getUser("'"$MONGO_ROOT_USERNAME"'");
+                        print("Admin user already exists");
+                      } catch (e) {
+                        db.createUser({
+                          user: "'"$MONGO_ROOT_USERNAME"'",
+                          pwd: "'"$MONGO_ROOT_PASSWORD"'",
+                          roles: [{ role: "root", db: "admin" }]
+                        });
+                        print("Admin user created");
+                      }
+                    '
+
+                    echo "[postStart] MongoDB initialization complete"
 
           readinessProbe:
             tcpSocket:
