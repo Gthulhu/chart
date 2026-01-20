@@ -62,6 +62,31 @@ $ curl http://localhost:8080/api/v1/strategies/self \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
+To delete specific strategy(s), use the following command:
+
+```bash
+$ curl -X DELETE http://localhost:8080/api/v1/strategies   -H "Content-Type: application/json"   -H "Authorization: Bearer <TOKEN>"   -d '{
+    "strategyId": "696f3a16b12be8ecfe9a6dc6"
+  }'
+```
+
+To delete specific intent(s), use the following command:
+
+```bash
+$ curl http://localhost:8080/api/v1/intents/self   -H "Content-Type: application/json"   -H "Authorization: Bearer <TOKEN>"
+{"success":true,"data":{"intents":[{"ID":"696f3a16b12be8ecfe9a6dc7","StrategyID":"696f3a16b12be8ecfe9a6dc6","PodID":"31e4e721-a5a0-421a-ae1d-b7971ae30d6e","NodeID":"myvm","K8sNamespace":"default","CommandRegex":"","Priority":10,"ExecutionTime":20000000,"PodLabels":{"app.kubernetes.io/instance":"kube-prometheus-stack-prometheus","app.kubernetes.io/managed-by":"prometheus-operator","app.kubernetes.io/name":"prometheus","app.kubernetes.io/version":"3.8.1","apps.kubernetes.io/pod-index":"0","controller-revision-hash":"prometheus-kube-prometheus-stack-prometheus-77c9dd5f65","operator.prometheus.io/name":"kube-prometheus-stack-prometheus","operator.prometheus.io/shard":"0","prometheus":"kube-prometheus-stack-prometheus","statefulset.kubernetes.io/pod-name":"prometheus-kube-prometheus-stack-prometheus-0"},"State":2}]},"timestamp":"2026-01-20T08:25:52Z"}
+```
+
+You can delete an intent by its ID using the following command:
+> Please note that, the deletion of intents is not recommended unless for testing purposes, as it may lead to inconsistencies in the system.
+> The reason is that intents are generated based on the strategies defined by users. Deleting an intent does not remove the corresponding strategy, which may result in the system attempting to recreate the deleted intent based on the existing strategy. This can lead to confusion and potential conflicts within the system, as the state of intents may not accurately reflect the strategies in place. Therefore, it is advisable to manage strategies directly rather than deleting intents to maintain system integrity and consistency.
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/intents   -H "Content-Type: application/json"   -H "Authorization: Bearer <TOKEN>"   -d '{
+    "intentIds": ["696f3a16b12be8ecfe9a6dc7"]
+  }'
+```
+
 ### List all intents from decision maker
 
 ```bash
