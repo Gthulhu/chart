@@ -82,7 +82,23 @@ spec:
                       sleep 2
                     done
 
-                    echo "[postStart] Init replica set if needed..."
+                    # Check if we can connect with authentication (existing data)
+                    if mongosh --host localhost:27017 -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; then
+                      echo "[postStart] MongoDB already initialized with auth, checking replica set..."
+                      mongosh --host localhost:27017 -u "$MONGO_ROOT_USERNAME" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --quiet --eval '
+                        try {
+                          const status = rs.status();
+                          print("Replica set status: " + status.ok);
+                          print("MongoDB already configured, skipping initialization");
+                        } catch (e) {
+                          print("Error checking replica set: " + e.message);
+                        }
+                      '
+                      echo "[postStart] MongoDB initialization complete (existing data)"
+                      exit 0
+                    fi
+
+                    echo "[postStart] Fresh install detected, initializing replica set..."
                     mongosh --host localhost:27017 --quiet --eval '
                       try {
                         rs.status();
