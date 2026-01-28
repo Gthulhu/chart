@@ -1382,6 +1382,9 @@ grafana:
     autoMount: true
 
   sidecar:
+    # Skip TLS verification for Kubernetes API calls
+    # Required for k8s-sidecar 2.1.2+ with Python 3.14 due to stricter SSL validation
+    skipTlsVerify: true
     dashboards:
       enabled: true
       label: grafana_dashboard
