@@ -28,17 +28,22 @@ data:
     # This configuration file allows you to adjust scheduler parameters before eBPF program loading
     scheduler:
       # Default time slice in nanoseconds (default: 5000000 = 5ms)
-      slice_ns_default: 5000000
+      slice_ns_default: 20000000
       
       # Minimum time slice in nanoseconds (default: 500000 = 0.5ms)
-      slice_ns_min: 500000
+      slice_ns_min: 1000000
+
+      # Mode could be: simple, simple-fifo, gthulhu
+      mode: gthulhu
+      kernel_mode: true # experimental feature
+      max_time_watchdog: true
     api:
       enabled: true
       auth_enabled: true
       url: http://localhost:{{ .Values.scheduler.sidecar.port }}
       interval: 5
       public_key_path: /etc/gthulhu/jwt_public_key.pem
-    debug: true
+    debug: false
     early_processing: false
     builtin_idle: false
 {{- end }}
