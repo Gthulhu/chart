@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "gthulhu.labels" . | nindent 4 }}
     app.kubernetes.io/component: scheduler
+immutable: true
 data:
   jwt_public_key.pem: |
     -----BEGIN PUBLIC KEY-----

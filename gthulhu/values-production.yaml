@@ -9,7 +9,7 @@ scheduler:
   
   image:
     repository: ghcr.io/gthulhu/gthulhu
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     tag: "latest"
   
   # Scheduler requires privileged access for BPF operations
@@ -50,7 +50,7 @@ scheduler:
     enabled: true
     
     image:
-      repository: ghcr.io/gthulhu/api
+      repository: 127.0.0.1:32000/gthulhu-api
       pullPolicy: Always
       tag: "latest"
     
@@ -100,7 +100,7 @@ manager:
   replicaCount: 1
   
   image:
-    repository: ghcr.io/gthulhu/api
+    repository: 127.0.0.1:32000/gthulhu-api
     pullPolicy: Always
     tag: "latest"
   
@@ -211,6 +211,22 @@ mongodb:
     runAsUser: 999
     runAsGroup: 999
     fsGroup: 999
+
+# mTLS Configuration — enable for production to secure Manager ↔ DM sidecar traffic
+mtls:
+  enabled: true
+  # Provide your own Secret with keys: ca.crt, dm.crt, dm.key, manager.crt, manager.key
+  # Generate certs with: ./gen-mtls-certs.sh certs
+  existingSecret: ""
+  ca:
+    cert: ""
+  dm:
+    cert: ""
+    key: ""
+  manager:
+    cert: ""
+    key: ""
+  serverName: "localhost"
 
 # Global configuration
 global:

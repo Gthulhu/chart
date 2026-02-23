@@ -11,7 +11,8 @@ $  helm install  kube-prometheus-stack kube-prometheus-stack
 
 To deploy Gthulhu using Helm charts, follow these steps:
 ```bash
-$ helm install gthulhu gthulhu -f ./gthulhu/values-production.yaml
+$ cd gthulhu
+$ helm install gthulhu . -f ./values-production.yaml --set mtls.enabled=true --set-file mtls.ca.cert=certs/ca.crt --set-file mtls.dm.cert=certs/dm.crt --set-file mtls.dm.key=certs/dm.key --set-file mtls.manager.cert=certs/manager.crt --set-file mtls.manager.key=certs/manager.key
 ```
 
 To uninstall Gthulhu, run the following command:
