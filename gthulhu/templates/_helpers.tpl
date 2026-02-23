@@ -78,3 +78,14 @@ MongoDB auth secret name (referencing subchart)
 {{- printf "%s-mongodb-auth" .Release.Name }}
 {{- end }}
 {{- end }}
+
+{{/*
+mTLS Secret name — returns existingSecret if set, otherwise the chart-managed name.
+*/}}
+{{- define "gthulhu.mtlsSecretName" -}}
+{{- if .Values.mtls.existingSecret }}
+{{- .Values.mtls.existingSecret }}
+{{- else }}
+{{- printf "%s-mtls-certs" (include "gthulhu.fullname" .) }}
+{{- end }}
+{{- end }}

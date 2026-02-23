@@ -11,9 +11,9 @@ scheduler:
   replicaCount: 1
   
   image:
-    repository: 127.0.0.1:32000/gthulhu
+    repository: ghcr.io/gthulhu/gthulhu
     pullPolicy: Always
-    tag: "latest"
+    tag: "0.6.0"
   
   # Scheduler requires privileged access for BPF operations
   securityContext:
@@ -53,9 +53,9 @@ scheduler:
     enabled: true
     
     image:
-      repository: 127.0.0.1:32000/gthulhu-api
+      repository: ghcr.io/gthulhu/api
       pullPolicy: Always
-      tag: "latest"
+      tag: "1.3.0"
     
     # Sidecar port configuration
     port: 8080
@@ -103,9 +103,9 @@ manager:
   replicaCount: 1
   
   image:
-    repository: 127.0.0.1:32000/gthulhu-api
+    repository: ghcr.io/gthulhu/api
     pullPolicy: Always
-    tag: "latest"
+    tag: "1.3.0"
   
   # Manager port configuration
   port: 8080
@@ -214,6 +214,33 @@ mongodb:
     runAsUser: 999
     runAsGroup: 999
     fsGroup: 999
+
+# mTLS Configuration
+# Mutual TLS for secure communication between components:
+#   - Manager  → DM sidecar  (cross-node, Manager is client, DM is server)
+#   - Scheduler → DM sidecar  (same pod via localhost, Scheduler is client, DM is server)
+mtls:
+  enabled: false
+  # Use an existing Secret instead of the chart-managed one.
+  # The Secret must contain keys: ca.crt, dm.crt, dm.key, manager.crt, manager.key
+  existingSecret: ""
+  # PEM-encoded CA certificate (shared root of trust)
+  ca:
+    cert: ""
+  # DM sidecar server certificate and key (signed by CA)
+  dm:
+    cert: ""
+    key: ""
+  # Manager / Scheduler client certificate and key (signed by CA)
+  manager:
+    cert: ""
+    key: ""
+  # TLS ServerName override for Manager → DM connections.
+  # When set, Go's TLS stack verifies the DM certificate against this name
+  # instead of the connection target IP. Use "localhost" since the DM cert
+  # has DNS:localhost in its SAN. This avoids dynamic Pod IP issues.
+  # Requires api repo support for MTLSConfig.server_name field.
+  serverName: "localhost"
 
 # Global configuration
 global:
