@@ -13,7 +13,7 @@ scheduler:
   image:
     repository: ghcr.io/gthulhu/gthulhu
     pullPolicy: Always
-    tag: "0.6.0"
+    tag: "0.6.1"
   
   # Scheduler requires privileged access for BPF operations
   securityContext:
